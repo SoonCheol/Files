@@ -89,6 +89,7 @@
         <Manifest Include="app.manifest" />
         <!-- Bundled Pretendard weights for packaged WinUI UI. -->
         <Content Include="Assets\Fonts\Pretendard-*.ttf" CopyToOutputDirectory="PreserveNewest" />
+        <Content Include="Assets\Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
         <Content Update="Assets\Resources\**">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
