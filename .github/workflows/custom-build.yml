@@ -65,6 +65,27 @@ jobs:
           if ((git status --porcelain --untracked-files=all | Out-String).Trim()) {
             throw 'Checkout contains unexpected tracked or unignored changes after font download'
           }
+      - name: Set a unique increasing MSIX revision for each Windows build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # FilesDev versions previously remained at 4.3.3.0 across distinct builds,
+          # causing ERROR_PACKAGE_ALREADY_EXISTS (0x80073CFB) on user upgrades.
+          $revision = [int]$env:GITHUB_RUN_NUMBER
+          if ($revision -lt 1 -or $revision -gt 65535) { throw "MSIX revision is out of range: $revision" }
+          $manifestPath = 'src/Files.App/Package.appxmanifest'
+          $xml = [System.IO.File]::ReadAllText($manifestPath)
+          $version = "4.3.3.$revision"
+          $pattern = '(?s)(<Identity\\b[^>]*?\\bVersion=")4\\.3\\.3\\.\\d+(")'
+          $replacement = '${1}' + $version + '${2}'
+          $updated = [regex]::Replace($xml, $pattern, $replacement)
+          if ($updated -eq $xml -or $updated -notmatch ('Version="' + [regex]::Escape($version) + '"')) {
+            throw 'FilesDev package Identity version could not be updated exactly once'
+          }
+          [System.IO.File]::WriteAllText($manifestPath, $updated, (New-Object System.Text.UTF8Encoding($false)))
+          "FILES_PACKAGE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "This build's FilesDev MSIX version: $version"
+          # Changing the manifest is limited to this ephemeral checkout. No git push.
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v3
       - name: Setup NuGet
@@ -142,6 +163,9 @@ jobs:
             $_.Extension -in @('.msix','.appx') -and $_.FullName -notmatch '[\\/]Dependencies[\\/]'
           })
           if ($app.Count -ne 1) { throw "Expected one FilesDev app package, found $($app.Count)" }
+          if ($app[0].Name -notmatch [regex]::Escape($env:FILES_PACKAGE_VERSION)) {
+            throw "Output MSIX does not have expected upgrade version $env:FILES_PACKAGE_VERSION"
+          }
           Write-Host "Main install package: $($app[0].Name), $($app[0].Length) bytes"
       - name: Smoke-test real FilesDev MSIX installation on Windows runner
         shell: pwsh
@@ -175,7 +199,7 @@ jobs:
           if (-not $iscc) { throw 'Inno Setup compiler not found' }
           $destination = Join-Path $env:GITHUB_WORKSPACE 'installer-output'
           New-Item -ItemType Directory -Force -Path $destination | Out-Null
-          & $iscc "/DBuildOutput=$env:PACKAGE_DIR" "/O$destination" '.github/scripts/Files-Pretendard-Setup.iss'
+          & $iscc "/DBuildOutput=$env:PACKAGE_DIR" "/DPackageVersion=$env:FILES_PACKAGE_VERSION" "/O$destination" '.github/scripts/Files-Pretendard-Setup.iss'
           if ($LASTEXITCODE -ne 0) { throw 'Single-file installer compilation failed' }
           $installer = Join-Path $destination 'Files-Pretendard-Setup-x64.exe'
           if (-not (Test-Path $installer) -or (Get-Item $installer).Length -lt 10MB) { throw 'Installer EXE missing or too small' }
