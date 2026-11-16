@@ -42,7 +42,7 @@ try {
     # installed FilesDev package before attempting deployment.
     if ($installed.Count -gt 0 -and [Environment]::UserInteractive) {
         $locations = @($installed | Where-Object { $_.InstallLocation } | ForEach-Object {
-            $_.InstallLocation.TrimEnd('\\') + '\\'
+            $_.InstallLocation.TrimEnd([char]92) + [char]92
         })
         if ($locations.Count -gt 0) {
             for ($attempt = 0; $attempt -lt 3; $attempt++) {
