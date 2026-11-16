@@ -66,11 +66,11 @@
 						<Border
 							x:Name="ElementBorder"
 							Grid.Row="0"
-							Height="32"
+							Height="28"
 							Background="Transparent">
 							<Grid
 								x:Name="ElementGrid"
-								Margin="0,2,0,2"
+								Margin="0,1,0,1"
 								HorizontalAlignment="Stretch"
 								Background="{ThemeResource SubtleFillColorTransparentBrush}"
 								BackgroundSizing="InnerBorderEdge"
