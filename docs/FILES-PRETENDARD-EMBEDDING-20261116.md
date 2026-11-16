@@ -33,3 +33,13 @@ App resources: `src/Files.App/App.xaml`
 Packaging: `src/Files.App/Files.App.csproj`  
 License: `src/Files.App/Assets/Fonts/OFL.txt`  
 Binary ignore: `.gitignore`
+
+## Implementation and verification record (2026-11-16)
+- Checked source references in `SoonCheol/D200X-Deck`: `.github/workflows/streamdeck-clean-preview.yml`, `docs/D200X-FONT-EMBEDDING-20261116.md`, `app/streamdeck-editor/style.css`.
+- Verified actual Files framework from `Files.App.csproj`: WinUI / Windows App SDK, not DeckForge's Electron/CSS.
+- Checked font blob SHA values through official upstream pinned commit GitHub file records.
+- Source changes committed: license packaging `380da78`, ignored TTF `02467d2`, this handoff document `3f94114`, workflow `ece2e4c`.
+- Verified committed workflow source contains no font vendoring push; permissions reduced to `contents: read` and checkout credentials disabled.
+- A `push` trigger scoped to this workflow file was added so that the workflow-change commit can initiate a Windows run; `workflow_dispatch` remains supported.
+- **Not yet verified:** Windows runner successfully downloaded font bytes and checked hash; MSBuild/MSIX success; final package archive contains TTFs and OFL; Windows on-device appearance.
+- Available GitHub connector cannot dispatch a workflow and its commit-runs lookup returns pull-request runs only; a push-triggered build may not appear there. Confirm status under `https://github.com/SoonCheol/Files/actions/workflows/custom-build.yml`. Do not report build or font rendering as successful without execution evidence.
