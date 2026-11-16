@@ -110,6 +110,7 @@ jobs:
               $entries = @($zip.Entries | ForEach-Object { $_.FullName.Replace('\','/') })
               $missing = @($expected | Where-Object { $entries -notcontains $_ })
               if ($missing.Count -eq 0) {
+                if ($entries -notcontains 'Files.exe') { throw "Files.exe missing inside the installable MSIX: $($package.Name)" }
                 $matched = $true
                 Write-Host "All four TTF fonts and OFL notice verified in package: $($package.FullName)"
                 foreach ($name in $expected) {
