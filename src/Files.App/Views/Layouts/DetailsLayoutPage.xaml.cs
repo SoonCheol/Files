@@ -108,7 +108,9 @@ namespace Files.App.Views.Layouts
 		/// </summary>
 		public int RowHeight
 		{
-			get => LayoutSizeKindHelper.GetDetailsViewRowHeight((DetailsViewSizeKind)UserSettingsService.LayoutSettingsService.DetailsViewSize);
+			// Keep the user's selected view size while reducing excess vertical whitespace.
+			// Retain a 24px floor for file icons, selection and keyboard focus visuals.
+			get => Math.Max(24, LayoutSizeKindHelper.GetDetailsViewRowHeight((DetailsViewSizeKind)UserSettingsService.LayoutSettingsService.DetailsViewSize) - 4);
 		}
 
 
