@@ -60,3 +60,9 @@ Binary ignore: `.gitignore`
 - CI now performs a real `Add-AppxPackage` deployment smoke test on the Windows runner and checks `Get-AppxPackage FilesDev` before packaging EXE. This tests runner deployment, not installation on the user's Windows PC.
 - Commits: `80bf807` (dependency selection + error diagnostics), `c686924` (error dialog), `59745db` (Windows deployment smoke test).
 - **Verification pending:** new runner completion and actual on-device installation; previous setup EXE must not be presented as fixed.
+
+## 2026-11-16 Windows PowerShell 5.1 installation failure
+- User's new installer screenshot shows `System.IO.Compression.ZipFile` `TypeNotFound` at `Install-FilesDev-Package.ps1` line 16. The original helper loaded only `System.IO.Compression` before referencing `[System.IO.Compression.ZipFile]`.
+- The runner smoke test had invoked `pwsh` (PowerShell 7), while the Inno EXE uses `WindowsPowerShell\\v1.0\\powershell.exe` (Windows PowerShell 5.1). That runtime mismatch allowed CI to succeed despite the user's installation failure.
+- Fixed the helper to load `System.IO.Compression.FileSystem` explicitly and switched the runner deployment smoke test to the exact Windows PowerShell 5.1 executable used by the final installer. Commit `eb3a032` and `ec055c6`.
+- **New build and user installation pending verification.** Do not present older installer artifacts as fixed.
