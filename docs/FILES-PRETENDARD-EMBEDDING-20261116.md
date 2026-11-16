@@ -43,3 +43,12 @@ Binary ignore: `.gitignore`
 - A `push` trigger scoped to this workflow file was added so that the workflow-change commit can initiate a Windows run; `workflow_dispatch` remains supported.
 - **Not yet verified:** Windows runner successfully downloaded font bytes and checked hash; MSBuild/MSIX success; final package archive contains TTFs and OFL; Windows on-device appearance.
 - Available GitHub connector cannot dispatch a workflow and its commit-runs lookup returns pull-request runs only; a push-triggered build may not appear there. Confirm status under `https://github.com/SoonCheol/Files/actions/workflows/custom-build.yml`. Do not report build or font rendering as successful without execution evidence.
+
+## 2026-11-16 installer delivery correction
+- Previous artifact only uploaded MSIX/dependency payload. CI success was incorrectly treated as a complete installer deliverable.
+- Added Inno Setup `Files-Pretendard-Setup-x64.exe` packaging. It bundles the compiled `FilesDev` MSIX, dependent packages, public self-signed publisher certificate, and the local install helper. The build must fail if the EXE cannot be generated.
+- The installer runs with user-approved UAC elevation, verifies the packaged `FilesDev` identity, installs the generated certificate in `LocalMachine\\TrustedPeople`, and uses `Add-AppxPackage` for Windows deployment. It does not modify system fonts. **This is an unsigned EXE wrapper around a self-signed MSIX, not the upstream publisher-signed Files classic installer.**
+- FilesDev's separate package identity is retained so it is not converted into a replacement for the original Store/sideload package. Installation may still fail on unsupported Windows images or unmet dependencies; a successful build is not proof of runtime installation.
+- Added `.github/scripts/Install-FilesDev-Package.ps1` and `.github/scripts/Files-Pretendard-Setup.iss`; workflow additionally publishes artifact `Files-Pretendard-Setup-x64`.
+- Commit IDs: helper `0a3a29e`; installer definition `ef4434f`; workflow `39062f7`.
+- **Verification pending:** Windows Actions installer packaging run, final EXE artifact presence, successful interactive install, and visual font rendering. Do not report verified until evidence is available.
