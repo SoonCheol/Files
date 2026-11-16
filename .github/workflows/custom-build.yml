@@ -3,9 +3,17 @@ run-name: Personal Files Release x64
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - '.github/workflows/custom-build.yml'
+      - '.github/scripts/Generate-SelfCertPfx.ps1'
+      - 'src/**'
+      - 'Files.slnx'
+      - 'global.json'
+      - 'Directory.Build.*'
+      - 'Directory.Packages.props'
+      - 'NuGet.Config'
 
 permissions:
   contents: read
