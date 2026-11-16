@@ -90,3 +90,13 @@ Binary ignore: `.gitignore`
 - Commit `98f0cd1` now checks for an installed `Microsoft.WindowsAppRuntime.2`, skips the shared dependency when present, and uses `DeferRegistrationWhenPackagesAreInUse` when updating FilesDev instead of forcing applications to close. Clean installation still includes the x64 dependency if absent.
 - No removal or reset of the old FilesDev package or user data. Existing tree, file list and context-menu density changes are preserved.
 - Pending: Windows Actions build success, real Windows in-place upgrade, and whether deferred registration finishes. A clean runner install does not prove an in-place upgrade.
+
+## 2026-11-16 FilesDev safe update and no-op installation hardening
+- User requested avoiding repeat installation errors after successful initial launch and earlier `0x80073D02` / `0x80073CFB` reports.
+- Reviewed Microsoft Learn documentation for `Add-AppxPackage -DeferRegistrationWhenPackagesAreInUse` and `ERROR_PACKAGES_IN_USE`. The documented safe behavior is to close the target application or defer its update rather than terminating unrelated processes.
+- Preserved prior logic that skips re-installing an already present shared `Microsoft.WindowsAppRuntime.2` dependency, preserves app data and does not uninstall or force-close applications.
+- On upgrades, `Install-FilesDev-Package.ps1` now inspects running processes whose executable paths belong to the currently installed FilesDev package; the user can close FilesDev and choose Retry or Cancel. It does not terminate these processes automatically.
+- Re-running an equal or lower package version now succeeds as a no-op rather than raising an error. Failure diagnostics emphasize `0x80073D02` and `0x80073CFB` in readable text and retain the detailed exception.
+- The Windows Actions build now uses Windows PowerShell 5.1 to parse the helper and does a second invocation of the installed same-version package to test the no-op case. These are build-time checks, not guarantees about every user's running-app environment.
+- Commits: `2d8f30f` (running FilesDev preflight), `043a1db` (path char), `938253b`, `1dc9589`, `876a9ea` (CI syntax validation), `680d0aa` (idempotence and messages), `abb1fa8` (CI repeat install check).
+- **Still unverified:** latest GitHub Actions success, in-place update with FilesDev running, user installation and visuals. Do not claim complete installation success until these are checked.
