@@ -66,3 +66,11 @@ Binary ignore: `.gitignore`
 - The runner smoke test had invoked `pwsh` (PowerShell 7), while the Inno EXE uses `WindowsPowerShell\\v1.0\\powershell.exe` (Windows PowerShell 5.1). That runtime mismatch allowed CI to succeed despite the user's installation failure.
 - Fixed the helper to load `System.IO.Compression.FileSystem` explicitly and switched the runner deployment smoke test to the exact Windows PowerShell 5.1 executable used by the final installer. Commit `eb3a032` and `ec055c6`.
 - **New build and user installation pending verification.** Do not present older installer artifacts as fixed.
+
+## 2026-11-16 File Explorer density adjustment
+- User confirmed successful local install and app launch, but requested less vertical whitespace in navigation tree, file list and right-click menus, comparable to compact Windows 11 File Explorer.
+- Inspected `src/Files.App.Controls/Sidebar/SidebarStyles.xaml` where `SidebarItem` was fixed at 32 px; changed row height to 28 px and inner margins from 2 px to 1 px (commit `fa2be5d`).
+- Inspected `src/Files.App/Views/Layouts/DetailsLayoutPage.xaml.cs` and `.xaml`: detail rows bind to `RowHeight`, existing view size and compact container logic preserved. Reduced requested height by 4 px with 24 px floor; icon, text-size and selection features were not otherwise changed (commit `7df2410`).
+- Inspected `src/Files.App/App.xaml`: existing default MenuFlyoutItem, ToggleMenuFlyoutItem, MenuFlyoutSubItem styles remain based on WinUI defaults, with Pretendard unchanged; appended 28 px minimum height and 10,4 padding (commit `d0bd37f`).
+- Reference: Microsoft documents the native Explorer `View > Compact view` as reducing spacing between files; no assertion of exact Windows Explorer row height at the user's screen scaling.
+- **Not yet verified:** Windows Actions result of these commits, installed appearance, menu clipping or accessibility at 125%-200% scale. No installation artifacts should be described as ready until a successful new run is independently confirmed.
