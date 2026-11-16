@@ -82,3 +82,11 @@ Binary ignore: `.gitignore`
 - Installer checks the current user's already installed FilesDev version and refuses an equal or older package with an explicit error; it never runs `Remove-AppxPackage`.
 - Commits: `0afb9c6` (incremented MSIX revision), `d44f772` (exact manifest matching), `c0da15d` (sync EXE display version), `1b1df76` (protect existing install).
 - **Awaiting verification:** new Windows Actions run passes, new installer uploaded, and successful in-place update on the user's PC. A runner installation on a clean image does not prove an upgrade on an already installed machine.
+
+## 2026-11-16 update error 0x80073D02: comparison with pre-density build
+- Compared last pre-density source commit `3f8a03d` to `2702d16`. Exactly seven changed paths: three UI paths for sidebar tree, detail row height, and context menu; three installer/build paths for MSIX revision and update checks; and this handoff document.
+- User's current screenshot shows `0x80073D02` (`ERROR_PACKAGES_IN_USE`) with FilesDev and multiple other Microsoft/Samsung applications, rather than a XAML rendering failure. Per Microsoft MSIX troubleshooting, the deployment cannot change resources currently in use.
+- The installer helper was previously passing `Dependencies/x64/Microsoft.WindowsAppRuntime.2.msix` on every update, even if its shared framework was already installed; this may trigger a collision with unrelated apps that depend on the same framework.
+- Commit `98f0cd1` now checks for an installed `Microsoft.WindowsAppRuntime.2`, skips the shared dependency when present, and uses `DeferRegistrationWhenPackagesAreInUse` when updating FilesDev instead of forcing applications to close. Clean installation still includes the x64 dependency if absent.
+- No removal or reset of the old FilesDev package or user data. Existing tree, file list and context-menu density changes are preserved.
+- Pending: Windows Actions build success, real Windows in-place upgrade, and whether deferred registration finishes. A clean runner install does not prove an in-place upgrade.
