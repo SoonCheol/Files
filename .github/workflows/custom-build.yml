@@ -8,6 +8,8 @@ on:
     paths:
       - '.github/workflows/custom-build.yml'
       - '.github/scripts/Generate-SelfCertPfx.ps1'
+      - '.github/scripts/Install-FilesDev-Package.ps1'
+      - '.github/scripts/Files-Pretendard-Setup.iss'
       - 'src/**'
       - 'Files.slnx'
       - 'global.json'
@@ -123,6 +125,52 @@ jobs:
             }
           }
           if (-not $matched) { throw 'No final MSIX/AppX package includes all required fonts and license' }
+      - name: Prepare offline personal installer payload and export public signing certificate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $pfx = Join-Path $env:RUNNER_TEMP 'FilesApp_SelfSigned.pfx'
+          $cer = Join-Path $env:PACKAGE_DIR 'FilesApp_SelfSigned.cer'
+          if (-not (Test-Path $pfx)) { throw 'Temporary signing certificate is missing' }
+          New-Item -ItemType Directory -Force -Path $env:PACKAGE_DIR | Out-Null
+          $cert = Get-PfxCertificate -FilePath $pfx
+          if (-not $cert) { throw 'Cannot read PFX certificate' }
+          Export-Certificate -Cert $cert -FilePath $cer -Force | Out-Null
+          if (-not (Test-Path $cer)) { throw 'Exported public certificate missing' }
+          $app = @(Get-ChildItem -Path $env:PACKAGE_DIR -Recurse -File | Where-Object {
+            $_.Extension -in @('.msix','.appx') -and $_.FullName -notmatch '[\\/]Dependencies[\\/]'
+          })
+          if ($app.Count -ne 1) { throw "Expected one FilesDev app package, found $($app.Count)" }
+          Write-Host "Main install package: $($app[0].Name), $($app[0].Length) bytes"
+      - name: Build one-click x64 offline installer EXE
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install innosetup -y --no-progress --limit-output
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed' }
+          $iscc = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\\ISCC.exe')
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            $cmd = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+            if ($cmd) { $iscc = $cmd.Source }
+          }
+          if (-not $iscc) { throw 'Inno Setup compiler not found' }
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'installer-output'
+          New-Item -ItemType Directory -Force -Path $destination | Out-Null
+          & $iscc "/DBuildOutput=$env:PACKAGE_DIR" "/O$destination" '.github/scripts/Files-Pretendard-Setup.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Single-file installer compilation failed' }
+          $installer = Join-Path $destination 'Files-Pretendard-Setup-x64.exe'
+          if (-not (Test-Path $installer) -or (Get-Item $installer).Length -lt 10MB) { throw 'Installer EXE missing or too small' }
+          Write-Host "Installer EXE: $installer ($((Get-Item $installer).Length) bytes)"
+      - name: Upload one-click Files Pretendard Windows setup EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Files-Pretendard-Setup-x64
+          path: installer-output/Files-Pretendard-Setup-x64.exe
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload MSIX and dependency packages
         uses: actions/upload-artifact@v4
         with:
