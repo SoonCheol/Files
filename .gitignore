@@ -409,3 +409,6 @@ FodyWeavers.xsd
 *.sln.iml
 .idea/
 src/Files.App/Assets/FilesOpenDialog/Files.App.Launcher.exe.sha256
+
+# Pretendard TTFs are fetched only within GitHub Actions build workspaces.
+/src/Files.App/Assets/Fonts/Pretendard-*.ttf
