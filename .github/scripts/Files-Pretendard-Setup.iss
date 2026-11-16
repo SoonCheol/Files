@@ -2,10 +2,13 @@
 #ifndef BuildOutput
   #error BuildOutput define is required
 #endif
+#ifndef PackageVersion
+  #error PackageVersion define is required
+#endif
 [Setup]
 AppId={{C5A87CC5-B804-47DF-A096-5D2DD2A24E95}
 AppName=Files Pretendard (Personal)
-AppVersion=4.3.3
+AppVersion={#PackageVersion}
 AppPublisher=Personal Files build
 DefaultDirName={autopf}\FilesPretendardPersonal
 CreateAppDir=no
