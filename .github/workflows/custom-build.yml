@@ -2,9 +2,13 @@ name: Custom Files Build (Pretendard)
 run-name: Personal Files Release x64
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/custom-build.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -19,34 +23,38 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
         with:
-          persist-credentials: true
-      - name: Download and vendor Pretendard v1.3.9 static fonts
+          persist-credentials: false
+      - name: Download and SHA-verify official pinned Pretendard TTFs (workspace only)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $base = 'https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/packages/pretendard/dist/public/static/alternative'
-          New-Item -Path $env:FONT_DIR -ItemType Directory -Force | Out-Null
-          $names = @('Regular', 'Medium', 'SemiBold', 'Bold')
-          foreach ($weight in $names) {
-            $name = "Pretendard-$weight.ttf"
-            $target = Join-Path $env:FONT_DIR $name
-            if (-not (Test-Path $target)) {
-              Invoke-WebRequest -Uri "$base/$name" -OutFile $target
-            }
-            $bytes = [System.IO.File]::ReadAllBytes($target)
-            if ($bytes.Length -lt 1000000 -or $bytes[0] -ne 0 -or $bytes[1] -ne 1 -or $bytes[2] -ne 0 -or $bytes[3] -ne 0) {
-              throw "Invalid TTF: $name"
-            }
+          $commit = '7aeb0698819be2b4097dae8ec8fe6a795e5cf3ae'
+          $base = "https://raw.githubusercontent.com/orioncactus/pretendard/$commit/packages/pretendard/dist/public/static/alternative"
+          $fonts = [ordered]@{
+            'Pretendard-Regular.ttf'  = '01147e9991c91198235e8deefe9c3145dfad8d2a'
+            'Pretendard-Medium.ttf'   = '1db67c68fbd6922637bda59b917ae2d8721971c3'
+            'Pretendard-SemiBold.ttf' = '9f2690f0979cfcbf1492fc3927536284e346d065'
+            'Pretendard-Bold.ttf'     = 'fb07fc65e8e568c60dfd985fb6fcdfd114da4d64'
           }
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- $env:FONT_DIR
-          git diff --cached --quiet
-          if ($LASTEXITCODE -ne 0) {
-            git commit -m "assets: vendor Pretendard 1.3.9 static fonts"
-            if ($LASTEXITCODE -ne 0) { throw "Font commit failed" }
-            git push origin HEAD:main
-            if ($LASTEXITCODE -ne 0) { throw "Font push failed" }
+          New-Item -ItemType Directory -Force -Path $env:FONT_DIR | Out-Null
+          foreach ($font in $fonts.GetEnumerator()) {
+            $dest = Join-Path $env:FONT_DIR $font.Key
+            if (Test-Path -LiteralPath $dest) { throw "TTF unexpectedly present in checkout: $($font.Key)" }
+            Invoke-WebRequest -Uri "$base/$($font.Key)" -OutFile $dest -TimeoutSec 180 -ErrorAction Stop
+            $bytes = [System.IO.File]::ReadAllBytes($dest)
+            if ($bytes.Length -lt 1000000 -or $bytes[0] -ne 0 -or $bytes[1] -ne 1 -or $bytes[2] -ne 0 -or $bytes[3] -ne 0) {
+              throw "Missing or malformed TrueType font: $($font.Key)"
+            }
+            $blob = (& git hash-object -- $dest).Trim()
+            if ($LASTEXITCODE -ne 0 -or $blob -ne $font.Value) {
+              throw "Pinned Git blob SHA-1 mismatch for $($font.Key): expected $($font.Value), found $blob"
+            }
+            Write-Host "Verified $($font.Key) ($($bytes.Length) bytes, Git blob SHA-1 $blob)"
+          }
+          if (-not (Test-Path (Join-Path $env:FONT_DIR 'OFL.txt'))) { throw 'Pretendard SIL OFL notice is missing' }
+          # These ignored downloads are never committed or pushed.
+          if ((git status --porcelain --untracked-files=all | Out-String).Trim()) {
+            throw 'Checkout contains unexpected tracked or unignored changes after font download'
           }
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v3
@@ -70,6 +78,44 @@ jobs:
         run: |
           msbuild $env:APP_PROJECT -t:Build -p:Configuration=Release -p:Platform=x64 -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=true -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxPackageDir="$env:PACKAGE_DIR" -p:AppxPackageSigningEnabled=true -p:PackageCertificateKeyFile="$env:CERT_PATH" -p:PackageCertificatePassword="" -p:PackageCertificateThumbprint="" -v:quiet
           if ($LASTEXITCODE -ne 0) { throw "MSIX build failed" }
+      - name: Verify Pretendard TTF and license entries inside final MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $expected = @(
+            'Assets/Fonts/Pretendard-Regular.ttf',
+            'Assets/Fonts/Pretendard-Medium.ttf',
+            'Assets/Fonts/Pretendard-SemiBold.ttf',
+            'Assets/Fonts/Pretendard-Bold.ttf',
+            'Assets/Fonts/OFL.txt'
+          )
+          if (-not (Test-Path $env:PACKAGE_DIR)) { throw 'MSIX output directory does not exist' }
+          $packages = @(Get-ChildItem -Path $env:PACKAGE_DIR -Recurse -File | Where-Object { $_.Extension -in @('.msix','.appx') })
+          if ($packages.Count -eq 0) { throw 'No MSIX/AppX package available for payload inspection' }
+          $matched = $false
+          foreach ($package in $packages) {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($package.FullName)
+            try {
+              $entries = @($zip.Entries | ForEach-Object { $_.FullName.Replace('\','/') })
+              $missing = @($expected | Where-Object { $entries -notcontains $_ })
+              if ($missing.Count -eq 0) {
+                $matched = $true
+                Write-Host "All four TTF fonts and OFL notice verified in package: $($package.FullName)"
+                foreach ($name in $expected) {
+                  $entry = $zip.Entries | Where-Object { $_.FullName.Replace('\','/') -eq $name } | Select-Object -First 1
+                  if (-not $entry -or $entry.Length -lt 100) { throw "Empty packaged resource: $name" }
+                  Write-Host "  $name : $($entry.Length) bytes"
+                }
+              } else {
+                Write-Host "Package $($package.Name) missing fonts/license: $($missing -join ', ')"
+              }
+            } finally {
+              $zip.Dispose()
+            }
+          }
+          if (-not $matched) { throw 'No final MSIX/AppX package includes all required fonts and license' }
       - name: Upload MSIX and dependency packages
         uses: actions/upload-artifact@v4
         with:
