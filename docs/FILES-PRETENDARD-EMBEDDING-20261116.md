@@ -52,3 +52,11 @@ Binary ignore: `.gitignore`
 - Added `.github/scripts/Install-FilesDev-Package.ps1` and `.github/scripts/Files-Pretendard-Setup.iss`; workflow additionally publishes artifact `Files-Pretendard-Setup-x64`.
 - Commit IDs: helper `0a3a29e`; installer definition `ef4434f`; workflow `39062f7`.
 - **Verification pending:** Windows Actions installer packaging run, final EXE artifact presence, successful interactive install, and visual font rendering. Do not report verified until evidence is available.
+
+## 2026-11-16 reported installation failure and fixes
+- User's actual setup screenshot shows `Runtime error (at 1:1115): FilesDev package installation failed (exit 1)`. The wrapper masked the underlying PowerShell exception; do not assert the root cause is confirmed from this screenshot.
+- Inspected successful #15 job `133094164380` logs: payload includes `Dependencies\\arm64`, `Dependencies\\win32`, `Dependencies\\x64`, and `Dependencies\\x86` runtimes. Prior install helper excluded arm/arm64/x86 but unintentionally allowed `win32`, a plausible x64 deployment problem.
+- Changed install helper to select only `Dependencies\\x64` and save PowerShell error details to the extracted payload. Changed Inno setup to display that detail on failure.
+- CI now performs a real `Add-AppxPackage` deployment smoke test on the Windows runner and checks `Get-AppxPackage FilesDev` before packaging EXE. This tests runner deployment, not installation on the user's Windows PC.
+- Commits: `80bf807` (dependency selection + error diagnostics), `c686924` (error dialog), `59745db` (Windows deployment smoke test).
+- **Verification pending:** new runner completion and actual on-device installation; previous setup EXE must not be presented as fixed.
