@@ -44,18 +44,30 @@ try {
         Import-Certificate -FilePath $certificate -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
     }
 
-    # Only x64 dependencies are valid for this x64 installer.
-    # The MSBuild artifact also contains arm64, x86 and win32 packages;
-    # passing win32 dependencies to Add-AppxPackage is not appropriate.
+    # Install a Windows App Runtime dependency only when absent. Reinstalling
+    # the shared framework during a FilesDev update can collide with unrelated
+    # running Windows apps (0x80073D02 / ERROR_PACKAGES_IN_USE).
     $dependencies = @(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
         $_.Extension -in @('.msix','.appx') -and
         $_.FullName -match '[\\/]Dependencies[\\/]x64[\\/]'
     } | Select-Object -ExpandProperty FullName)
-    if ($dependencies.Count -eq 0) {
-        throw 'x64 Windows App Runtime dependency package is missing from installer payload.'
-    }
+    $installedRuntime = @(Get-AppxPackage -Name 'Microsoft.WindowsAppRuntime.2' -ErrorAction Stop)
     $args = @{ Path = $package.FullName; ErrorAction = 'Stop' }
-    if ($dependencies.Count -gt 0) { $args.DependencyPath = $dependencies }
+    if ($installedRuntime.Count -eq 0) {
+        if ($dependencies.Count -eq 0) {
+            throw 'Required x64 Windows App Runtime dependency is not installed or included.'
+        }
+        $args.DependencyPath = $dependencies
+        Write-Host 'Windows App Runtime is absent; installing included x64 dependency.'
+    }
+    else {
+        Write-Host 'Windows App Runtime is installed; not servicing shared framework packages.'
+    }
+    # Do not force-close FilesDev or unrelated apps. Windows can defer an in-use
+    # FilesDev update until the app is next launched.
+    if ($installed.Count -gt 0) {
+        $args.DeferRegistrationWhenPackagesAreInUse = $true
+    }
     Add-AppxPackage @args
     Write-Host 'FilesDev installation completed successfully.'
     exit 0
