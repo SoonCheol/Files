@@ -31,6 +31,8 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
   Command: String;
+  ErrorDetails: AnsiString;
+  ErrorFile: String;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -40,6 +42,13 @@ begin
       '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
       RaiseException('Could not start the FilesDev installer.');
     if ResultCode <> 0 then
-      RaiseException('FilesDev package installation failed (exit ' + IntToStr(ResultCode) + '). See setup log for details.');
+    begin
+      ErrorFile := ExpandConstant('{tmp}\FilesDevPayload\FilesDev-install-error.txt');
+      if LoadStringFromFile(ErrorFile, ErrorDetails) then
+        MsgBox('FilesDev installation failed:' + #13#10 + #13#10 + Copy(String(ErrorDetails), 1, 1800), mbError, MB_OK)
+      else
+        MsgBox('FilesDev installation failed (exit ' + IntToStr(ResultCode) + '). Detailed error file was not produced.', mbError, MB_OK);
+      RaiseException('FilesDev package installation failed (exit ' + IntToStr(ResultCode) + ').');
+    end;
   end;
 end;
