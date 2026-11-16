@@ -147,7 +147,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          & pwsh -NoProfile -File '.github/scripts/Install-FilesDev-Package.ps1' -PackageRoot $env:PACKAGE_DIR
+          # The Inno installer invokes Windows PowerShell 5.1, not pwsh 7.
+          # Test the exact runtime and script path used on the user's PC.
+          & "$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File '.github/scripts/Install-FilesDev-Package.ps1' -PackageRoot $env:PACKAGE_DIR
           if ($LASTEXITCODE -ne 0) {
             $errorFile = Join-Path $env:PACKAGE_DIR 'FilesDev-install-error.txt'
             if (Test-Path $errorFile) { Get-Content -Raw $errorFile | Write-Host }
