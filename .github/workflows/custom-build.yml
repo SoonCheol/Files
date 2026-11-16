@@ -38,13 +38,18 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $scriptPath = '.github/scripts/Install-FilesDev-Package.ps1'
-          $errors = $null
-          $tokens = $null
-          $ast = [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $scriptPath).Path, [ref]$tokens, [ref]$errors)
-          if ($null -eq $ast -or $errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Host $_ }
-            throw 'Installer PowerShell script parse failed'
+          $ps51 = "$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+          $check = @'
+          $parseErrors = $null
+          $parseTokens = $null
+          $ast = [System.Management.Automation.Language.Parser]::ParseFile($args[0], [ref]$parseTokens, [ref]$parseErrors)
+          if ($null -eq $ast -or $parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Host $_ }
+            exit 1
           }
+          '@
+          & $ps51 -NoProfile -Command $check (Resolve-Path $scriptPath).Path
+          if ($LASTEXITCODE -ne 0) { throw 'Installer PowerShell 5.1 syntax parse failed' }
           Write-Host 'Installer PowerShell script syntax validated.'
       - name: Download and SHA-verify official pinned Pretendard TTFs (workspace only)
         shell: pwsh
