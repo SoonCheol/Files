@@ -24,7 +24,7 @@ SetupLogging=yes
 
 [Files]
 Source: "{#BuildOutput}\*"; DestDir: "{tmp}\FilesDevPayload"; Flags: recursesubdirs createallsubdirs deleteafterinstall
-Source: ".github\scripts\Install-FilesDev-Package.ps1"; DestDir: "{tmp}\FilesDevPayload"; Flags: deleteafterinstall
+Source: "Install-FilesDev-Package.ps1"; DestDir: "{tmp}\FilesDevPayload"; Flags: deleteafterinstall
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
