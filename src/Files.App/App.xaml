@@ -90,16 +90,22 @@
 
 			<!--  Workaround for https://github.com/files-community/Files/issues/12026  -->
 			<Style BasedOn="{StaticResource DefaultMenuFlyoutItemStyle}" TargetType="MenuFlyoutItem">
+				<Setter Property="MinHeight" Value="28" />
+				<Setter Property="Padding" Value="10,4" />
 				<Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
 			</Style>
 
 			<!--  Workaround for https://github.com/files-community/Files/issues/12026  -->
 			<Style BasedOn="{StaticResource DefaultToggleMenuFlyoutItemStyle}" TargetType="ToggleMenuFlyoutItem">
+				<Setter Property="MinHeight" Value="28" />
+				<Setter Property="Padding" Value="10,4" />
 				<Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
 			</Style>
 
 			<!--  Workaround for https://github.com/files-community/Files/issues/12026  -->
 			<Style BasedOn="{StaticResource DefaultMenuFlyoutSubItemStyle}" TargetType="MenuFlyoutSubItem">
+				<Setter Property="MinHeight" Value="28" />
+				<Setter Property="Padding" Value="10,4" />
 				<Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
 			</Style>
 
