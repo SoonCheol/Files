@@ -27,6 +27,16 @@ try {
         }
     } finally { $archive.Dispose() }
 
+    # Never uninstall an existing FilesDev package or reset its application data.
+    # Same-version rebuilds are blocked by Windows (0x80073CFB).
+    $incomingVersion = [version]$identity.Version
+    $installed = @(Get-AppxPackage -Name 'FilesDev' -ErrorAction Stop)
+    foreach ($entry in $installed) {
+        if ([version]$entry.Version -ge $incomingVersion) {
+            throw "Installed FilesDev version $($entry.Version) is not older than setup version $incomingVersion. Refusing to uninstall or overwrite user data."
+        }
+    }
+
     $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certificate)
     $trusted = Get-ChildItem 'Cert:\LocalMachine\TrustedPeople' | Where-Object Thumbprint -eq $cert.Thumbprint
     if (-not $trusted) {
