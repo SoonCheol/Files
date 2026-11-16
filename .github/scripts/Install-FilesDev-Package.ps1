@@ -12,7 +12,9 @@ try {
     })
     if ($packages.Count -ne 1) { throw "Expected exactly one FilesDev app package, found $($packages.Count)." }
     $package = $packages[0]
+    # Windows PowerShell 5.1 needs FileSystem explicitly for ZipFile.OpenRead.
     Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
     $archive = [System.IO.Compression.ZipFile]::OpenRead($package.FullName)
     try {
         $manifest = $archive.GetEntry('AppxManifest.xml')
