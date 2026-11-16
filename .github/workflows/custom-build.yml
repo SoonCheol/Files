@@ -18,7 +18,6 @@ jobs:
       FONT_DIR: src/Files.App/Assets/Fonts
       APP_PROJECT: src/Files.App/Files.App.csproj
       PACKAGE_DIR: ${{ github.workspace }}\\artifacts\\AppxPackages\\
-      CERT_PATH: ${{ runner.temp }}\\FilesApp_SelfSigned.pfx
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -72,7 +71,7 @@ jobs:
       - name: Generate temporary personal test signing certificate
         shell: pwsh
         run: |
-          ./.github/scripts/Generate-SelfCertPfx.ps1 -Destination "$env:CERT_PATH"
+          ./.github/scripts/Generate-SelfCertPfx.ps1 -Destination (Join-Path $env:RUNNER_TEMP "FilesApp_SelfSigned.pfx")
       - name: Build and package Release x64 MSIX
         shell: pwsh
         run: |
