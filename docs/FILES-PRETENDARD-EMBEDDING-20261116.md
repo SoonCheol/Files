@@ -74,3 +74,11 @@ Binary ignore: `.gitignore`
 - Inspected `src/Files.App/App.xaml`: existing default MenuFlyoutItem, ToggleMenuFlyoutItem, MenuFlyoutSubItem styles remain based on WinUI defaults, with Pretendard unchanged; appended 28 px minimum height and 10,4 padding (commit `d0bd37f`).
 - Reference: Microsoft documents the native Explorer `View > Compact view` as reducing spacing between files; no assertion of exact Windows Explorer row height at the user's screen scaling.
 - **Not yet verified:** Windows Actions result of these commits, installed appearance, menu clipping or accessibility at 125%-200% scale. No installation artifacts should be described as ready until a successful new run is independently confirmed.
+
+## 2026-11-16 repeat installation blocked (0x80073CFB)
+- User-provided screenshot shows `Add-AppxPackage` HRESULT `0x80073CFB` and `ResourceExists` when installing a new FilesDev build over an earlier installed `4.3.3.0` package.
+- Official Microsoft Windows package deployment guidance identifies the root as a previously installed package with the same identity/version but differing content or signature. Recommended safe update solution: increment the package version, rebuild and sign. Uninstalling was deliberately **not** implemented because local user data must be preserved.
+- The baseline source manifest remains `4.3.3.0`. The GitHub Windows workflow modifies only its ephemeral checkout to `4.3.3.${GITHUB_RUN_NUMBER}` before MSBuild and uses the same version in the Inno Setup EXE; GitHub Actions run number is validated 1..65535. The resulting MSIX filename is checked against that version.
+- Installer checks the current user's already installed FilesDev version and refuses an equal or older package with an explicit error; it never runs `Remove-AppxPackage`.
+- Commits: `0afb9c6` (incremented MSIX revision), `d44f772` (exact manifest matching), `c0da15d` (sync EXE display version), `1b1df76` (protect existing install).
+- **Awaiting verification:** new Windows Actions run passes, new installer uploaded, and successful in-place update on the user's PC. A runner installation on a clean image does not prove an upgrade on an already installed machine.
