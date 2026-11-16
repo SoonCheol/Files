@@ -143,6 +143,19 @@ jobs:
           })
           if ($app.Count -ne 1) { throw "Expected one FilesDev app package, found $($app.Count)" }
           Write-Host "Main install package: $($app[0].Name), $($app[0].Length) bytes"
+      - name: Smoke-test real FilesDev MSIX installation on Windows runner
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & pwsh -NoProfile -File '.github/scripts/Install-FilesDev-Package.ps1' -PackageRoot $env:PACKAGE_DIR
+          if ($LASTEXITCODE -ne 0) {
+            $errorFile = Join-Path $env:PACKAGE_DIR 'FilesDev-install-error.txt'
+            if (Test-Path $errorFile) { Get-Content -Raw $errorFile | Write-Host }
+            throw "Real MSIX deployment test failed (exit $LASTEXITCODE)"
+          }
+          $installed = Get-AppxPackage -Name 'FilesDev' | Where-Object { $_.Publisher -like '*CN=Files*' }
+          if (-not $installed) { throw 'Package installer returned success, but FilesDev was not registered' }
+          Write-Host "Installed test FilesDev: $($installed.PackageFullName)"
       - name: Build one-click x64 offline installer EXE
         shell: pwsh
         run: |
