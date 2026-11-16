@@ -33,7 +33,8 @@ try {
     $installed = @(Get-AppxPackage -Name 'FilesDev' -ErrorAction Stop)
     foreach ($entry in $installed) {
         if ([version]$entry.Version -ge $incomingVersion) {
-            throw "Installed FilesDev version $($entry.Version) is not older than setup version $incomingVersion. Refusing to uninstall or overwrite user data."
+            Write-Host "FilesDev $($entry.Version) is already installed; package $incomingVersion does not require an update."
+            exit 0
         }
     }
 
@@ -107,8 +108,17 @@ try {
 }
 catch {
     $details = $_ | Out-String
-    $message = 'INSTALL FAILED: ' + $_.Exception.Message + [Environment]::NewLine + $details
-    try { [System.IO.File]::WriteAllText($failureLog, $message, [System.Text.Encoding]::UTF8) } catch {}
+    $friendly = 'FilesDev setup could not finish. No installed app or user data was removed.'
+    if ($details -match '0x80073D02') {
+        $friendly = 'FilesDev or a related Windows app is in use (0x80073D02). Close FilesDev and retry the installer.'
+    }
+    elseif ($details -match '0x80073CFB') {
+        $friendly = 'Windows reports a conflicting FilesDev package (0x80073CFB). A new version or matching signing identity may be required.'
+    }
+    $message = $friendly + [Environment]::NewLine + [Environment]::NewLine + $details
+    # Inno Setup reads this as an ANSI string; use the active Windows ANSI
+    # code page so error dialogs remain readable on Korean Windows.
+    try { [System.IO.File]::WriteAllText($failureLog, $message, [System.Text.Encoding]::Default) } catch {}
     Write-Host $message
     exit 1
 }
