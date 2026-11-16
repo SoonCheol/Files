@@ -75,7 +75,7 @@ jobs:
       - name: Build and package Release x64 MSIX
         shell: pwsh
         run: |
-          msbuild $env:APP_PROJECT -t:Build -p:Configuration=Release -p:Platform=x64 -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=true -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxPackageDir="$env:PACKAGE_DIR" -p:AppxPackageSigningEnabled=true -p:PackageCertificateKeyFile="$env:CERT_PATH" -p:PackageCertificatePassword="" -p:PackageCertificateThumbprint="" -v:quiet
+          msbuild $env:APP_PROJECT -t:Build -p:Configuration=Release -p:Platform=x64 -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=true -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxPackageDir="$env:PACKAGE_DIR" -p:AppxPackageSigningEnabled=true -p:PackageCertificateKeyFile="$(Join-Path $env:RUNNER_TEMP 'FilesApp_SelfSigned.pfx')" -p:PackageCertificatePassword="" -p:PackageCertificateThumbprint="" -v:quiet
           if ($LASTEXITCODE -ne 0) { throw "MSIX build failed" }
       - name: Verify Pretendard TTF and license entries inside final MSIX
         shell: pwsh
