@@ -2,6 +2,7 @@
 # This installs a self-signed test build; it does not modify Windows system fonts.
 param([Parameter(Mandatory=$true)][string]$PackageRoot)
 $ErrorActionPreference = 'Stop'
+$failureLog = Join-Path $PackageRoot 'FilesDev-install-error.txt'
 try {
     $root = (Resolve-Path -LiteralPath $PackageRoot).Path
     $certificate = Join-Path $root 'FilesApp_SelfSigned.cer'
@@ -31,12 +32,15 @@ try {
         Import-Certificate -FilePath $certificate -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
     }
 
-    $dependencyDirs = @(Get-ChildItem -LiteralPath $root -Directory -Recurse | Where-Object Name -eq 'Dependencies')
-    $dependencies = @()
-    foreach ($dir in $dependencyDirs) {
-        $dependencies += @(Get-ChildItem -LiteralPath $dir.FullName -Recurse -File | Where-Object {
-            $_.Extension -in @('.msix','.appx') -and ($_.DirectoryName -notmatch '[\\/](arm|arm64|x86)([\\/]|$)')
-        } | Select-Object -ExpandProperty FullName)
+    # Only x64 dependencies are valid for this x64 installer.
+    # The MSBuild artifact also contains arm64, x86 and win32 packages;
+    # passing win32 dependencies to Add-AppxPackage is not appropriate.
+    $dependencies = @(Get-ChildItem -LiteralPath $root -Recurse -File | Where-Object {
+        $_.Extension -in @('.msix','.appx') -and
+        $_.FullName -match '[\\/]Dependencies[\\/]x64[\\/]'
+    } | Select-Object -ExpandProperty FullName)
+    if ($dependencies.Count -eq 0) {
+        throw 'x64 Windows App Runtime dependency package is missing from installer payload.'
     }
     $args = @{ Path = $package.FullName; ErrorAction = 'Stop' }
     if ($dependencies.Count -gt 0) { $args.DependencyPath = $dependencies }
@@ -45,6 +49,9 @@ try {
     exit 0
 }
 catch {
-    Write-Host ('INSTALL FAILED: ' + $_.Exception.Message)
+    $details = $_ | Out-String
+    $message = 'INSTALL FAILED: ' + $_.Exception.Message + [Environment]::NewLine + $details
+    try { [System.IO.File]::WriteAllText($failureLog, $message, [System.Text.Encoding]::UTF8) } catch {}
+    Write-Host $message
     exit 1
 }
