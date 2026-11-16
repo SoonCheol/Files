@@ -1,0 +1,79 @@
+name: Custom Files Build (Pretendard)
+run-name: Personal Files Release x64
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      FONT_DIR: src/Files.App/Assets/Fonts
+      APP_PROJECT: src/Files.App/Files.App.csproj
+      PACKAGE_DIR: ${{ github.workspace }}\\artifacts\\AppxPackages\\
+      CERT_PATH: ${{ runner.temp }}\\FilesApp_SelfSigned.pfx
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download and vendor Pretendard v1.3.9 static fonts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $base = 'https://raw.githubusercontent.com/orioncactus/pretendard/v1.3.9/packages/pretendard/dist/public/static/alternative'
+          New-Item -Path $env:FONT_DIR -ItemType Directory -Force | Out-Null
+          $names = @('Regular', 'Medium', 'SemiBold', 'Bold')
+          foreach ($weight in $names) {
+            $name = "Pretendard-$weight.ttf"
+            $target = Join-Path $env:FONT_DIR $name
+            if (-not (Test-Path $target)) {
+              Invoke-WebRequest -Uri "$base/$name" -OutFile $target
+            }
+            $bytes = [System.IO.File]::ReadAllBytes($target)
+            if ($bytes.Length -lt 1000000 -or $bytes[0] -ne 0 -or $bytes[1] -ne 1 -or $bytes[2] -ne 0 -or $bytes[3] -ne 0) {
+              throw "Invalid TTF: $name"
+            }
+          }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $env:FONT_DIR
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "assets: vendor Pretendard 1.3.9 static fonts"
+            if ($LASTEXITCODE -ne 0) { throw "Font commit failed" }
+            git push origin HEAD:main
+            if ($LASTEXITCODE -ne 0) { throw "Font push failed" }
+          }
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v3
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Restore
+        shell: pwsh
+        run: |
+          msbuild Files.slnx -t:Restore -p:Platform=x64 -p:Configuration=Release -p:PublishReadyToRun=true -v:quiet
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+      - name: Generate temporary personal test signing certificate
+        shell: pwsh
+        run: |
+          ./.github/scripts/Generate-SelfCertPfx.ps1 -Destination "$env:CERT_PATH"
+      - name: Build and package Release x64 MSIX
+        shell: pwsh
+        run: |
+          msbuild $env:APP_PROJECT -t:Build -p:Configuration=Release -p:Platform=x64 -p:AppxBundle=Never -p:GenerateAppxPackageOnBuild=true -p:UapAppxPackageBuildMode=SideloadOnly -p:AppxPackageDir="$env:PACKAGE_DIR" -p:AppxPackageSigningEnabled=true -p:PackageCertificateKeyFile="$env:CERT_PATH" -p:PackageCertificatePassword="" -p:PackageCertificateThumbprint="" -v:quiet
+          if ($LASTEXITCODE -ne 0) { throw "MSIX build failed" }
+      - name: Upload MSIX and dependency packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Files-Pretendard-Release-x64
+          path: ${{ env.PACKAGE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
