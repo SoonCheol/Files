@@ -204,6 +204,11 @@ jobs:
           $installed = Get-AppxPackage -Name 'FilesDev' | Where-Object { $_.Publisher -like '*CN=Files*' }
           if (-not $installed) { throw 'Package installer returned success, but FilesDev was not registered' }
           Write-Host "Installed test FilesDev: $($installed.PackageFullName)"
+          # A second invocation of the same downloaded setup must be a safe no-op,
+          # not a 0x80073CFB "already installed" failure.
+          & "$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File '.github/scripts/Install-FilesDev-Package.ps1' -PackageRoot $env:PACKAGE_DIR
+          if ($LASTEXITCODE -ne 0) { throw "Repeat installation idempotence test failed ($LASTEXITCODE)" }
+          Write-Host 'Repeat installation completed as a safe no-op.'
       - name: Build one-click x64 offline installer EXE
         shell: pwsh
         run: |
