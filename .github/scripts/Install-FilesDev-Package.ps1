@@ -37,6 +37,39 @@ try {
         }
     }
 
+    # Keep existing settings intact: never uninstall, reset or forcibly kill FilesDev.
+    # On upgrades, ask the user to close just the processes belonging to the
+    # installed FilesDev package before attempting deployment.
+    if ($installed.Count -gt 0 -and [Environment]::UserInteractive) {
+        $locations = @($installed | Where-Object { $_.InstallLocation } | ForEach-Object {
+            $_.InstallLocation.TrimEnd('\\') + '\\'
+        })
+        if ($locations.Count -gt 0) {
+            for ($attempt = 0; $attempt -lt 3; $attempt++) {
+                $running = @(Get-CimInstance -ClassName Win32_Process -Filter "Name = 'Files.exe' OR Name = 'Files.App.Server.exe'" -ErrorAction Stop |
+                    Where-Object {
+                        $exe = $_.ExecutablePath
+                        $exe -and @($locations | Where-Object {
+                            $exe.StartsWith($_, [System.StringComparison]::OrdinalIgnoreCase)
+                        }).Count -gt 0
+                    })
+                if ($running.Count -eq 0) { break }
+                Add-Type -AssemblyName System.Windows.Forms
+                $result = [System.Windows.Forms.MessageBox]::Show(
+                    "FilesDev is still running. Please close all FilesDev windows, then select Retry. Your files and settings will be preserved.",
+                    "FilesDev update", [System.Windows.Forms.MessageBoxButtons]::RetryCancel,
+                    [System.Windows.Forms.MessageBoxIcon]::Information)
+                if ($result -ne [System.Windows.Forms.DialogResult]::Retry) {
+                    throw 'The update was cancelled because FilesDev is still running. No installed app or user data was removed.'
+                }
+                Start-Sleep -Seconds 2
+            }
+            if ($running.Count -gt 0) {
+                throw 'FilesDev is still running. Close FilesDev and its background processes before updating, then retry the installer.'
+            }
+        }
+    }
+
     $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certificate)
     $trusted = Get-ChildItem 'Cert:\LocalMachine\TrustedPeople' | Where-Object Thumbprint -eq $cert.Thumbprint
     if (-not $trusted) {
