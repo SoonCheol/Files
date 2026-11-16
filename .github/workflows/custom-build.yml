@@ -76,11 +76,13 @@ jobs:
           $manifestPath = 'src/Files.App/Package.appxmanifest'
           $xml = [System.IO.File]::ReadAllText($manifestPath)
           $version = "4.3.3.$revision"
-          $pattern = '(?s)(<Identity\\b[^>]*?\\bVersion=")4\\.3\\.3\\.\\d+(")'
-          $replacement = '${1}' + $version + '${2}'
-          $updated = [regex]::Replace($xml, $pattern, $replacement)
-          if ($updated -eq $xml -or $updated -notmatch ('Version="' + [regex]::Escape($version) + '"')) {
-            throw 'FilesDev package Identity version could not be updated exactly once'
+          $oldVersion = 'Version="4.3.3.0"'
+          if ($xml.IndexOf($oldVersion, [System.StringComparison]::Ordinal) -lt 0) {
+            throw 'Expected baseline FilesDev identity version 4.3.3.0 was not found'
+          }
+          $updated = $xml.Replace($oldVersion, ('Version="' + $version + '"'))
+          if ($updated -eq $xml -or $updated -notmatch [regex]::Escape('Version="' + $version + '"')) {
+            throw 'FilesDev package Identity version could not be updated'
           }
           [System.IO.File]::WriteAllText($manifestPath, $updated, (New-Object System.Text.UTF8Encoding($false)))
           "FILES_PACKAGE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
